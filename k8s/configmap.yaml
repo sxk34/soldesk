@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ticketing-config
+  namespace: ticketing
+data:
+  AWS_REGION: "ap-northeast-2"
+  DB_NAME: "ticketing_test"
+  DB_PORT: "3306"
+  REDIS_PORT: "6379"
+---
+# Secrets는 kubectl로 별도 생성:
+# kubectl create secret generic ticketing-secrets \
+#   --from-literal=DB_WRITER_HOST=<rds-writer-endpoint> \
+#   --from-literal=DB_READER_HOST=<rds-reader-endpoint> \
+#   --from-literal=DB_USER=root \
+#   --from-literal=DB_PASSWORD=<YOUR_DB_PASSWORD> \
+#   --from-literal=REDIS_HOST=<elasticache-endpoint> \
+#   --from-literal=SQS_QUEUE_URL=<sqs-fifo-url> \
+#   -n ticketing

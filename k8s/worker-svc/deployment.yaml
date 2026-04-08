@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-svc
+  namespace: ticketing
+  labels:
+    app: worker-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-svc
+  template:
+    metadata:
+      labels:
+        app: worker-svc
+    spec:
+      serviceAccountName: sqs-access-sa
+      containers:
+        - name: worker-svc
+          image: ticketing/worker-svc:latest
+          ports:
+            - containerPort: 5002
+          envFrom:
+            - configMapRef:
+                name: ticketing-config
+            - secretRef:
+                name: ticketing-secrets
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5002
+            initialDelaySeconds: 10
+            periodSeconds: 15

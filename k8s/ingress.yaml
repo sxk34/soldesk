@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ticketing-ingress
+  namespace: ticketing
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          # Read API
+          - path: /api/read
+            pathType: Prefix
+            backend:
+              service:
+                name: read-api
+                port:
+                  number: 5000
+          # Write API
+          - path: /api/write
+            pathType: Prefix
+            backend:
+              service:
+                name: write-api
+                port:
+                  number: 5001
+          # Health check
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: read-api
+                port:
+                  number: 5000

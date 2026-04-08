@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - sqs-service-account.yaml
+  - read-api/deployment.yaml
+  - read-api/service.yaml
+  - write-api/deployment.yaml
+  - write-api/service.yaml
+  - worker-svc/deployment.yaml
+  - worker-svc/service.yaml
+  - ingress.yaml
+
+# 배포 시 ECR 이미지로 교체:
+# kustomize edit set image ticketing/ticketing-was=ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing/ticketing-was:latest
+images:
+  - name: ticketing/ticketing-was
+    newName: ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing/ticketing-was
+    newTag: latest
+  - name: ticketing/worker-svc
+    newName: ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing/worker-svc
+    newTag: latest
