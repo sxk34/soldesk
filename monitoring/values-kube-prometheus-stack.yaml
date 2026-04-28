@@ -92,14 +92,14 @@ grafana:
     enabled: true
     storageClassName: gp3
     size: 5Gi
-  # 실사용 12m/274Mi — CPU req 절반, mem req 는 실사용 반영해 올림. mem limit 을 400 으로 올려 OOM 방지.
+  # 대시보드 다수 동시 로드 시 400Mi limit 으로 OOM 발생(3/3 → 2/3). limit 1Gi 로 상향.
   resources:
     requests:
       cpu: 50m
-      memory: 256Mi
+      memory: 384Mi
     limits:
-      cpu: 200m
-      memory: 400Mi
+      cpu: 300m
+      memory: 1Gi
   service:
     type: ClusterIP
 
