@@ -7,5 +7,6 @@ spec:
   selector:
     app: read-api
   ports:
-    - port: 5000
+    - name: metrics
+      port: 5000
       targetPort: 5000

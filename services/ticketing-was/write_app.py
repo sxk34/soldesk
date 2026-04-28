@@ -6,6 +6,7 @@ from typing import Any, Dict
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from cors_ensure_middleware import EnsureCrossOriginCredentialsMiddleware
 from auth.auth_user_write import router as auth_user_write_router
@@ -69,6 +70,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Ticketing Write API", lifespan=lifespan)
+
+# Prometheus 메트릭: HTTP 요청 카운터/지연 히스토그램 + /metrics 엔드포인트(text/plain).
+# CognitoAuthMiddleware 화이트리스트에 /metrics 가 이미 포함되어 있어 인증 없이 노출됨.
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 
 @app.get("/api/write/admin/startup-sync/status")

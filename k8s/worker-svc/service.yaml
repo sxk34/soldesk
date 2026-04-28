@@ -7,5 +7,6 @@ spec:
   selector:
     app: worker-svc
   ports:
-    - port: 5002
+    - name: metrics
+      port: 5002
       targetPort: 5002

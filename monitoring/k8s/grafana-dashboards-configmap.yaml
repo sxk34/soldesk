@@ -164,6 +164,51 @@ data:
           "targets": [{ "expr": "up{job=\"worker-svc\"}", "refId": "A" }],
           "fieldConfig": { "defaults": { "mappings": [{"type":"value","options":{"0":{"text":"DOWN","color":"red"},"1":{"text":"UP","color":"green"}}}] }, "overrides": [] },
           "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "value" }
+        },
+        { "id": 50, "type": "row", "title": "Application Custom Metrics", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 52 }, "collapsed": false, "panels": [] },
+        {
+          "id": 51, "type": "timeseries", "title": "worker-svc TPS (received vs acked)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 53 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "sum(rate(worker_sqs_received_total[1m]))", "legendFormat": "received/s", "refId": "A" },
+            { "expr": "sum(rate(worker_sqs_acked_total[1m]))", "legendFormat": "acked/s", "refId": "B" },
+            { "expr": "sum(worker_sqs_inflight)", "legendFormat": "inflight", "refId": "C" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "ops", "min": 0, "custom": { "fillOpacity": 10, "lineWidth": 2 } }, "overrides": [] },
+          "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean","max"] } }
+        },
+        {
+          "id": 52, "type": "timeseries", "title": "worker-svc Handle Latency (P50/P95)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 53 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "histogram_quantile(0.50, sum(rate(worker_handle_ms_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A" },
+            { "expr": "histogram_quantile(0.95, sum(rate(worker_handle_ms_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B" },
+            { "expr": "histogram_quantile(0.99, sum(rate(worker_handle_ms_bucket[5m])) by (le))", "legendFormat": "p99", "refId": "C" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "ms", "min": 0, "custom": { "fillOpacity": 10, "lineWidth": 2 } }, "overrides": [] },
+          "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean","max"] } }
+        },
+        {
+          "id": 53, "type": "timeseries", "title": "read/write-api QPS by handler",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 61 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "sum(rate(http_requests_total[1m])) by (job, handler)", "legendFormat": "{{job}} {{handler}}", "refId": "A" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "reqps", "min": 0, "custom": { "fillOpacity": 10, "lineWidth": 2 } }, "overrides": [] },
+          "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean","max"] } }
+        },
+        {
+          "id": 54, "type": "timeseries", "title": "read/write-api 5xx Error Rate",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 61 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) by (job) / sum(rate(http_requests_total[5m])) by (job)", "legendFormat": "{{job}}", "refId": "A" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "fillOpacity": 20, "lineWidth": 2 }, "thresholds": { "mode": "absolute", "steps": [{"color":"green","value":null},{"color":"yellow","value":0.01},{"color":"red","value":0.05}] } }, "overrides": [] },
+          "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean","max"] } }
         }
       ]
     }

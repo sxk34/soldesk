@@ -20,6 +20,13 @@ import time
 import threading
 import random
 from botocore.config import Config
+from prometheus_client import (
+    Counter,
+    Histogram,
+    Gauge,
+    generate_latest,
+    CONTENT_TYPE_LATEST,
+)
 
 logging.basicConfig(level="INFO", format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("worker-svc")
@@ -221,6 +228,37 @@ _db_sem = threading.Semaphore(WORKER_DB_MAX_CONCURRENT)
 _batch_pool = ThreadPoolExecutor(max_workers=WORKER_SQS_BATCH_CONCURRENCY)
 
 
+# Prometheus 메트릭(모듈 레벨, 프로세스 수명 동안 단일 인스턴스).
+# JSON snapshot 은 /stats 로 보존되며 사람이 보는 디버그용 — Prometheus 스크랩은 /metrics 사용.
+WORKER_SQS_RECEIVED = Counter(
+    "worker_sqs_received_total",
+    "Total SQS messages received",
+)
+WORKER_SQS_ACKED = Counter(
+    "worker_sqs_acked_total",
+    "Total SQS messages deleted (ack)",
+)
+WORKER_PROCESS_TOTAL = Counter(
+    "worker_process_total",
+    "Processed messages by result",
+    ["result"],
+)
+WORKER_HANDLE_MS = Histogram(
+    "worker_handle_ms",
+    "Handler duration in milliseconds",
+    buckets=(5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000),
+)
+WORKER_DB_SEM_WAIT_MS = Histogram(
+    "worker_db_sem_wait_ms",
+    "DB semaphore wait in milliseconds",
+    buckets=(1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500),
+)
+WORKER_INFLIGHT = Gauge(
+    "worker_sqs_inflight",
+    "Approximate in-flight messages (received - acked)",
+)
+
+
 class _Stats:
     def __init__(self):
         self._lock = threading.Lock()
@@ -238,10 +276,16 @@ class _Stats:
     def inc_received(self, n: int):
         with self._lock:
             self.received += int(n)
+            inflight = max(0, self.received - self.acked)
+        WORKER_SQS_RECEIVED.inc(int(n))
+        WORKER_INFLIGHT.set(inflight)
 
     def inc_acked(self):
         with self._lock:
             self.acked += 1
+            inflight = max(0, self.received - self.acked)
+        WORKER_SQS_ACKED.inc()
+        WORKER_INFLIGHT.set(inflight)
 
     def record_ok(self, handle_ms: float, sem_wait_ms: float):
         with self._lock:
@@ -250,6 +294,9 @@ class _Stats:
             self.handle_ms_max = max(self.handle_ms_max, handle_ms)
             self.db_sem_wait_ms_sum += sem_wait_ms
             self.db_sem_wait_ms_max = max(self.db_sem_wait_ms_max, sem_wait_ms)
+        WORKER_PROCESS_TOTAL.labels(result="ok").inc()
+        WORKER_HANDLE_MS.observe(handle_ms)
+        WORKER_DB_SEM_WAIT_MS.observe(sem_wait_ms)
 
     def record_fail(self, handle_ms: float, sem_wait_ms: float, err: str):
         with self._lock:
@@ -259,6 +306,9 @@ class _Stats:
             self.db_sem_wait_ms_sum += sem_wait_ms
             self.db_sem_wait_ms_max = max(self.db_sem_wait_ms_max, sem_wait_ms)
             self.last_error = (err or "")[:500]
+        WORKER_PROCESS_TOTAL.labels(result="fail").inc()
+        WORKER_HANDLE_MS.observe(handle_ms)
+        WORKER_DB_SEM_WAIT_MS.observe(sem_wait_ms)
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -1382,6 +1432,7 @@ def poll_loop(poller_id: int = 0):
 
 # ── FastAPI (헬스체크 + 메트릭) ───────────────────────────────────────────────
 from fastapi import FastAPI
+from fastapi.responses import Response
 from contextlib import asynccontextmanager
 import threading
 
@@ -1412,7 +1463,16 @@ def health():
 @app.get("/metrics")
 def metrics():
     """
-    데모/운영 관측용 JSON 메트릭.
+    Prometheus exposition format(text/plain). kube-prometheus-stack 의
+    additionalScrapeConfigs(worker-svc job) 가 이 엔드포인트를 스크랩한다.
+    """
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+@app.get("/stats")
+def stats_json():
+    """
+    사람이 보는 디버그용 JSON snapshot. Prometheus 가 아닌 운영자가 직접 호출.
     - 처리량(TPS)은 외부에서 5~10초 간격으로 diff를 내면 됨.
     - DB 세마포어 대기(avg/max)가 올라가면 DB 동시성/인덱스/경합 이슈 신호.
     """

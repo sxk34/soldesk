@@ -8,6 +8,7 @@ from urllib.request import Request, urlopen
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from cors_ensure_middleware import EnsureCrossOriginCredentialsMiddleware
 from auth.auth_user_read import router as auth_user_read_router
@@ -191,6 +192,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Ticketing Read API", lifespan=lifespan)
+
+# Prometheus 메트릭: HTTP 요청 카운터/지연 히스토그램 + /metrics 엔드포인트(text/plain).
+# CognitoAuthMiddleware 화이트리스트에 /metrics 가 이미 포함되어 있어 인증 없이 노출됨.
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 # S3 웹사이트 등 다른 오리진에서 credentials 포함 요청 시 allow_origins=["*"] 는 브라우저 규격상 불가.
 app.add_middleware(
