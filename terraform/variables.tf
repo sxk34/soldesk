@@ -198,7 +198,7 @@ variable "eks_app_node_instance_types" {
 
 variable "eks_app_node_desired_size" {
   type        = number
-  default     = 2
+  default     = 4
   description = <<-EOT
     평시 desired 노드 수 (Pod 밀도 한도로 1노드가 부족할 때 2 권장).
     Cluster Autoscaler가 부하 시 노드를 더 띄우려면 eks_app_node_max_size 가 이 값보다 커야 함(검증 참고).
